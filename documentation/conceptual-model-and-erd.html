@@ -1,0 +1,53 @@
+<body>
+<h2>Conceptual Model</h2>
+<h4>profile</h4>
+<ul>
+    <li>profile_id (primary key)</li>
+    <li>profile_about</li>
+    <li>profile_activation_token (for account verification)</li>
+    <li>profile_email</li>
+    <li>profile_image_url</li>
+    <li>profile_hash (for account password)</li>
+    <li>profile_name</li>
+</ul>
+<h4>follow</h4>
+<ul>
+    <li>follower_profile_id (foreign key)</li>
+    <li>following_profile_id (foreign key)</li>
+</ul>
+<h4>thread</h4>
+<ul>
+    <li>thread_id (primary key)</li>
+    <li>thread_profile_id (foreign key)</li>
+    <li>thread_reply_thread_id (foreign key)</li>
+    <li>thread_content</li>
+    <li>thread_datetime</li>
+    <li>thread_image_url</li>
+</ul>
+<h4>like</h4>
+<ul>
+    <li>like_profile_id (foreign key)</li>
+    <li>like_thread_id (foreign key)</li>
+    <li>like_datetime</li>
+</ul>
+<h4>keyword</h4>
+<ul>
+    <li>keyword_id (primary key)</li>
+    <li>keyword_name</li>
+</ul>
+<h4>tag</h4>
+<ul>
+    <li>tag_keyword_id (foreign key)</li>
+    <li>tag_thread_id (foreign key)</li>
+</ul>
+<h2>Relations</h2>
+<ul>
+    <li>One <strong>profile</strong> can make many <strong>threads</strong> (1 to many).</li>
+    <li> Many <strong>threads</strong> can be <strong>liked</strong> by many <strong>profiles</strong> (many to many).</li>
+    <li>Many <strong>profiles</strong> can <strong>follow</strong> many <strong>profiles</strong> (many to many).</li>
+    <li>Many <strong>threads</strong> can be <strong>tag</strong>ged with many <strong>keywords</strong> (many to many).</li>
+    <li>One <strong>thread</strong> can have many <strong>thread replies</strong> (one to many).</li>
+</ul>
+
+<img src="images/rethreads-erd.png" alt="rethreads erd">
+</body>
