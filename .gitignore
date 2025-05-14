@@ -2,3 +2,4 @@
 .Ds_Store
 node_modules
 .react-router
+project.env
