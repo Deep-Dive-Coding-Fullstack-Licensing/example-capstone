@@ -1,0 +1,50 @@
+services:
+  redis:
+
+    image: 'redis:alpine'
+    volumes:
+      - 'redis:/data'
+    env_file:
+      - ./project.env
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  sql:
+
+    build: ./sql
+    volumes:
+      - sql:/var/lib/postgresql/data/
+    env_file:
+      - ./project.env
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  backend:
+    build: backend
+    env_file:
+      - project.env
+    user: 'node'
+    volumes:
+      - ./backend/src:/home/node/app/src
+    ports:
+      - '8080:4200'
+    depends_on:
+      redis:
+        condition: service_healthy
+      sql:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:4200/apis/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+volumes:
+  sql:
+    driver: local
+  redis:
+    driver: local
