@@ -1,0 +1,217 @@
+import { z } from 'zod/v4'
+import {sql} from "../../utils/database.utils.ts";
+
+/**
+ * Schema for validating private profile objects
+ * @shape profileId: string the primary key for the profile
+ * @shape profileAbout: string | null the about section for the profile
+ * @shape profileActivationToken: string | null the activation token for the profile
+ * @shape profileEmail: string the email for the profile
+ * @shape profileHash: string the password hash for the profile
+ * @shape profileImageUrl: string  the image URL for the profile
+ * @shape profileName: string the name for the profile
+ */
+export const PrivateProfileSchema = z.object({
+	profileId: z.uuidv7('Please provide a valid uuid for profileId'),
+	profileAbout: z.string('Please provide a valid profile about')
+		.max(512, 'please provide a valid profileAbout (max 512 characters)' )
+		.trim()
+		.nullable(),
+	profileActivationToken: z.string('Please provide a valid profileActivationToken')
+		.length(32,  'profile activation token must be 32 characters' )
+		.nullable(),
+	profileEmail: z
+		.email('please provide a valid email')
+		.max(128, 'please provide a valid profileEmail (max 128 characters)' ),
+	profileHash: z.string('Please provide a valid profileHash')
+		.length(97, { message: 'profile hash must be 97 characters' }),
+	profileImageUrl:z.url('please provide a valid profile image url' )
+		.max(255, { message: 'please provide a valid profileImageUrl (max 255 characters)' })
+		.trim(),
+	profileName: z.string('Please provide a valid profileName')
+		.trim()
+		.min(1,  'please provide a valid profileName (min 1 characters)' )
+		.max(32, 'please provide a valid profileName (max 32 characters)' )
+})
+
+
+/**
+ * Schema for validating public profile objects
+ * @shape profileId: string the primary key for the profile
+ * @shape profileAbout: string | null the about section for the profile
+ * @shape profileImageUrl: string | null the image URL for the profile
+ * @shape profileName: string the name for the profile
+ */
+export const PublicProfileSchema = PrivateProfileSchema.omit({profileHash: true, profileActivationToken: true, profileEmail: true})
+
+/**
+ * this type is used to represent a private profile object
+ * @shape profileId: string the primary key for the profile
+ * @shape profileAbout: string | null the about section for the profile
+ * @shape profileActivationToken: string | null the activation token for the profile
+ * @shape profileEmail: string the email for the profile
+ * @shape profileHash: string the password hash for the profile
+ * @shape profileImageUrl: string the image URL for the profile
+ * @shape profileName: string the name for the profile
+ */
+export type PrivateProfile = z.infer<typeof PrivateProfileSchema>
+
+/**
+ * this type is used to represent a public profile object
+ * @shape profileId: string the primary key for the profile
+ * @shape profileAbout: string | null the about section for the profile
+ * @shape profileImageUrl: string the image URL for the profile
+ * @shape profileName: string the name for the profile
+ **/
+export type PublicProfile = z.infer<typeof PublicProfileSchema>
+
+/**
+ * Inserts a new profile into the profile table
+ * @param profile the profile to insert
+ * @returns "profile successfully created"
+ */
+export async function insertProfile (profile: PrivateProfile): Promise<string> {
+	// validate the profile object against the PrivateProfileSchema
+	PrivateProfileSchema.parse(profile)
+	//
+	const { profileAbout, profileActivationToken, profileEmail, profileHash, profileImageUrl, profileName, profileId } = profile
+	await sql`INSERT INTO profile(profile_id, profile_about, profile_activation_token, profile_email, profile_hash, profile_image_url, profile_name) VALUES (${profileId} , ${profileAbout}, ${profileActivationToken}, ${profileEmail}, ${profileHash}, ${profileImageUrl}, ${profileName})`
+	return 'Profile Successfully Created'
+}
+
+/**
+ * Selects a profile from the profile table by profileActivationToken
+ * @param profileActivationToken the profile's activation token to search for in the profile table
+ * @returns Profile or null if no profile was found
+ */
+export async function selectPrivateProfileByProfileActivationToken (profileActivationToken: string): Promise<PrivateProfile|null> {
+
+	const rowList = await sql`SELECT profile_id, profile_about, profile_activation_token, profile_email, profile_hash, profile_image_url, profile_name FROM profile WHERE profile_activation_token = ${profileActivationToken}`
+	const result = PrivateProfileSchema.array().max(1).parse(rowList)
+	return result[0] ?? null
+}
+
+/**
+ * updates a profile in the profile table
+ * @param profile
+ * @returns {Promise<string>} 'Profile successfully updated'
+ */
+export async function updateProfile (profile: PrivateProfile): Promise<string> {
+	const { profileId, profileAbout, profileActivationToken, profileEmail, profileHash, profileImageUrl, profileName } = profile
+	await sql`UPDATE profile SET profile_about = ${profileAbout}, profile_activation_token = ${profileActivationToken}, profile_email = ${profileEmail}, profile_hash = ${profileHash}, profile_image_url = ${profileImageUrl}, profile_name = ${profileName} WHERE profile_id = ${profileId}`
+	return 'Profile successfully updated'
+}
+
+/**
+ * Selects the privateProfile from the profile table by profileEmail
+ * @param profileEmail  the profile's email to search for in the profile table
+ * @returns Profile or null if no profile was found
+ */
+export async function selectPrivateProfileByProfileEmail (profileEmail: string): Promise<PrivateProfile | null> {
+
+	// create a prepared statement that selects the profile by profileEmail and execute the statement
+	const rowList =  await sql`SELECT profile_id, profile_about, profile_activation_token, profile_email, profile_hash, profile_image_url, profile_name FROM profile WHERE profile_email = ${profileEmail}`
+
+	//enforce that the result is an array of one profile, or null
+	const result = PrivateProfileSchema.array().max(1).parse(rowList)
+
+	// return the profile or null if no profile was found
+	return result[0] ?? null
+}
+
+/**
+ * selects the publicProfile from the profile table by profileId
+ * @param profileId the profile's id to search for in the profile table
+ * @returns Profile or null if no profile was found
+ **/
+export async function selectPublicProfileByProfileId (profileId: string): Promise<PublicProfile | null> {
+
+	// create a prepared statement that selects the profile by profileId and execute the statement
+	const rowList = await sql`SELECT profile_id, profile_about, profile_image_url, profile_name FROM profile WHERE profile_id = ${profileId}`
+
+	// enforce that the result is an array of one profile, or null
+	const result = PublicProfileSchema.array().max(1).parse(rowList)
+
+	// return the profile or null if no profile was found
+	return  result[0] ?? null
+}
+
+/**
+ * selects the publicProfile from the profile table by profileName
+ * @param profileName the profile's name to search for in the profile table
+ * @returns {PublicProfile | null} if no profile was found
+ */
+export async function selectPublicProfileByProfileName(profileName: string): Promise<PublicProfile | null> {
+
+	// create a prepared statement that selects the profile by profileName and execute the statement
+	const rowList = await sql`SELECT profile_id, profile_about, profile_image_url, profile_name FROM profile WHERE profile_name = ${profileName}`
+
+	// enforce that the result is an array of one profile, or null
+	const result = PublicProfileSchema.array().max(1).parse(rowList)
+
+	// return the profile or null if no profile was found
+	return result[0] ?? null
+}
+
+/**
+ * selects a list of profiles from the profile table by profileName
+ * @param profileName the profile's name to search for in the profile table
+ * @returns an array of profiles
+ **/
+
+export async function selectPublicProfilesByProfileName(profileName: string): Promise<PublicProfile[]> {
+
+	// format profileName to include wildcards
+	const profileNameWithWildcards = `%${profileName}%`
+
+	// create a prepared statement that selects profiles by profileName and execute the statement
+	const rowList = await sql`SELECT profile_id, profile_about, profile_image_url, profile_name FROM profile WHERE profile_name LIKE ${profileNameWithWildcards}`
+
+	return PublicProfileSchema.array().parse(rowList)
+}
+
+/**
+ * selects the privateProfile from the profile table by profileId
+ * @param profileId the profile's id to search for in the profile table
+ * @returns PrivateProfile or null if no profile was found
+ */
+export async function selectPrivateProfileByProfileId(profileId: string): Promise<PrivateProfile | null> {
+
+	// create a prepared statement that selects the profile by profileId and execute the statement
+	const rowList = await sql`SELECT profile_id, profile_about, profile_activation_token, profile_email, profile_hash, profile_image_url, profile_name FROM profile WHERE profile_id = ${profileId}`
+
+// enforce that the result is an array of one profile, or null
+	const result = PrivateProfileSchema.array().max(1).parse(rowList)
+
+	// return the profile or null if no profile was found
+	return result[0] ?? null
+}
+
+/**
+ * Selects followers of a profile by profileId
+ * @param profileId the profile's id to search for in the profile table
+ * @return an array of profiles that are following the profile
+ */
+
+export async function selectPublicFollowersByProfileId (profileId: string): Promise<PublicProfile[]> {
+	const rowList = await sql`SELECT profile_id, profile_about, profile_image_url, profile_name FROM profile inner join follow on profile.profile_id = follow.follower_profile_id WHERE following_profile_id = ${profileId}`
+	// enforce that the result is an array of profiles
+	return PublicProfileSchema.array().parse(rowList)
+}
+
+/**
+ * Selects all the profiles a profile is following by profileId
+ * @param profileId the profile's id to search for in the profile table
+ * @return an array of profiles that the profile is following
+ **/
+
+export async function selectPublicFollowingByProfileId (profileId: string): Promise<PublicProfile[]> {
+	const rowList = await sql`SELECT profile_id, profile_about, profile_image_url, profile_name FROM profile inner join follow on profile.profile_id = follow.following_profile_id WHERE follower_profile_id = ${profileId}`
+
+	// enforce that the result is an array of profiles
+	return PublicProfileSchema.array().parse(rowList)
+}
+
+
+
+
