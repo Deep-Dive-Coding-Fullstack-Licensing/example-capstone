@@ -1,0 +1,63 @@
+import type {NextFunction, Request, Response} from 'express'
+import {
+	PrivateProfileSchema,
+	selectPrivateProfileByProfileActivationToken,
+	updateProfile
+} from '../profile/profile.model'
+import type {Status} from '../../utils/interfaces/Status'
+
+import {zodErrorResponse} from '../../utils/response.utils'
+import {z} from 'zod/v4'
+
+
+
+/**
+ * Handles the logic for account activation by checking for an existing profileActivationToken and updating the profileActivationToken to null
+ * @param request {Request} the request object containing the profileActivationToken
+ * @param response {Response} the response object containing the status and message
+ */
+export async function activationController(request: Request, response: Response, ): Promise<void> {
+	try {
+		const validationResult= z
+			.object({
+				activation: z
+					.string('activation is required')
+					.length(32, 'please provide a valid activation token' )
+			}).safeParse(request.params)
+
+		// if the validation is unsuccessful, return a preformatted response to the client
+		if (!validationResult.success) {
+			zodErrorResponse(response, validationResult.error)
+			return
+		}
+
+		// deconstruct the profileActivationToken from the request body
+		const {activation} = validationResult.data
+
+		// select the profile by profileActivationToken
+		const profile = await selectPrivateProfileByProfileActivationToken(activation)
+
+		// if the profile is null, return a preformatted response to the client
+		if (profile === null) {
+			response.json({
+				status: 400,
+				data: null,
+				message: 'Account activation has failed. Have you already activated this account?'
+			})
+			return
+		}
+		// if the profile is not null, update the profileActivationToken to null and send a success response
+		profile.profileActivationToken = null
+		await updateProfile(profile)
+		response.json({
+			status: 200,
+			data: null,
+			message: 'Account activation was successful'
+		})
+
+	} catch (error) {
+		console.error(error)
+		// catch any errors and return them to the client
+		response.json({status: 500, data: null, message: 'internal server error try again later'})
+	}
+}
